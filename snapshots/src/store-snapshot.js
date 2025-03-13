@@ -6,6 +6,7 @@ import fileToIpfs from "@kleros/file-to-ipfs";
 const FILE_NAME_TEMPLATE = "{{prefix}}snapshot-{{period}}.json";
 
 const prefixByChainId = {
+  421614: "arbitrumSepolia-",
   42161: "arbitrum-"
 };
 

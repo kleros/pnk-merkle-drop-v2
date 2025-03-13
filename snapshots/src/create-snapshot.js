@@ -33,6 +33,7 @@ import { createGetEvents } from "./helpers/events.js";
 dayjs.extend(utc);
 
 const chainIdToContract = {
+  421614: "./assets/KlerosCoreDevnet.json",
   42161: "./assets/KlerosCoreNeo.json"
 };
 

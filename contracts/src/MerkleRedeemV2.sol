@@ -1,5 +1,17 @@
 // SPDX-License-Identifier: MIT
 
+/**
+ * Original code taken from: https://github.com/balancer-labs/erc20-
+ * redeemable/blob/13d478a043ec7bfce7abefe708d027dfe3e2ea84/merkle/contracts/MerkleRedeem.sol
+ *
+ * Only comments and events were added, some variable names changed for clarity and the compiler version was upgraded to 0.8.20.
+ *
+ * @reviewers: [@hbarcelos, @kemuru]
+ * @auditors: []
+ * @bounties: []
+ * @deployments: []
+ */
+
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
@@ -14,27 +26,27 @@ contract MerkleRedeem is Ownable {
     IERC20 public token;
 
     /**
-     * @dev To be emitted when a claim is made.
+     * @dev Emitted when a claim is made.
      * @param _claimant The address of the claimant.
      * @param _balance The amount being claimed.
      */
     event Claimed(address _claimant, uint256 _balance);
 
-    /// @dev The merkle roots of each month. monthMerkleRoots[month].
+    /// @dev The merkle roots of each month: monthMerkleRoots[month].
     mapping(uint => bytes32) public monthMerkleRoots;
 
-    /// @dev Keeps track of the claim status for the given period and claimant. claimed[period][claimant].
+    /// @dev Tracks claim status for a given month and address: claimed[month][account] = true if claimed.
     mapping(uint => mapping(address => bool)) public claimed;
 
     /**
      * @param _token The address of the token being distributed.
      */
-    constructor(address _token) {
+    constructor(address _token) Ownable(msg.sender) {
         token = IERC20(_token);
     }
 
     /**
-     * @dev Effectively pays a claimant.
+     * @dev Internal function to pay out a claim.
      * @param _liquidityProvider The address of the claimant.
      * @param _balance The amount being claimed.
      */
@@ -46,11 +58,11 @@ contract MerkleRedeem is Ownable {
     }
 
     /**
-     * @notice Makes a claim for a given claimant in a month.
+     * @notice Make a claim for a given month.
      * @param _liquidityProvider The address of the claimant.
-     * @param _month The month for the claim.
-     * @param _claimedBalance The amount being claimed.
-     * @param _merkleProof The merkle proof for the claim, sorted from the leaf to the root of the tree.
+     * @param _month The month number for the claim.
+     * @param _claimedBalance The amount being claimed for that month.
+     * @param _merkleProof The Merkle proof, from leaf to root.
      */
     function claimMonth(
         address _liquidityProvider,
@@ -66,18 +78,18 @@ contract MerkleRedeem is Ownable {
     }
 
     struct Claim {
-        // The month the claim is related to.
+        // The month number of the claim.
         uint month;
-        // The amount being claimed.
+        // The amount being claimed for that month.
         uint balance;
-        // The merkle proof for the claim, sorted from the leaf to the root of the tree.
+        // The Merkle proof for this claim.
         bytes32[] merkleProof;
     }
 
     /**
-     * @notice Makes multiple claims for a given claimant.
+     * @notice Make multiple claims for multiple months in one transaction.
      * @param _liquidityProvider The address of the claimant.
-     * @param claims An array of claims containing the month, balance and the merkle proof.
+     * @param claims An array of Claim structs (month, balance, proof).
      */
     function claimMonths(address _liquidityProvider, Claim[] memory claims) public {
         uint totalBalance = 0;
@@ -93,40 +105,43 @@ contract MerkleRedeem is Ownable {
     }
 
     /**
-     * @notice Gets the claim status for given claimant from `_begin` to `_end` months.
-     * @param _liquidityProvider The address of the claimant.
-     * @param _begin The month to start with (inclusive).
-     * @param _end The month to end with (inclusive).
+     * @notice Check claim status from month `_begin` to `_end` for a user.
+     * @param _liquidityProvider The address of the user/claimant.
+     * @param _begin The starting month (inclusive).
+     * @param _end The ending month (inclusive).
+     * @return An array of booleans indicating claimed (true) or not for each month in range.
      */
     function claimStatus(address _liquidityProvider, uint _begin, uint _end) external view returns (bool[] memory) {
         uint size = 1 + _end - _begin;
-        bool[] memory arr = new bool[](size);
+        bool[] memory status = new bool[](size);
         for (uint i = 0; i < size; i++) {
-            arr[i] = claimed[_begin + i][_liquidityProvider];
+            status[i] = claimed[_begin + i][_liquidityProvider];
         }
-        return arr;
+        return status;
     }
 
     /**
-     * @notice Gets all merkle roots for from `_begin` to `_end` months.
-     * @param _begin The month to start with (inclusive).
-     * @param _end The month to end with (inclusive).
+     * @notice Get Merkle roots for months `_begin` to `_end`.
+     * @param _begin The starting month (inclusive).
+     * @param _end The ending month (inclusive).
+     * @return An array of merkle roots corresponding to each month in the range.
      */
     function merkleRoots(uint _begin, uint _end) external view returns (bytes32[] memory) {
         uint size = 1 + _end - _begin;
-        bytes32[] memory arr = new bytes32[](size);
+        bytes32[] memory roots = new bytes32[](size);
         for (uint i = 0; i < size; i++) {
-            arr[i] = monthMerkleRoots[_begin + i];
+            roots[i] = monthMerkleRoots[_begin + i];
         }
-        return arr;
+        return roots;
     }
 
     /**
-     * @notice Verifies a claim.
+     * @notice Verify a claim against the stored Merkle root.
      * @param _liquidityProvider The address of the claimant.
-     * @param _month The month for the claim.
-     * @param _claimedBalance The amount being claimed.
-     * @param _merkleProof The merkle proof for the claim, sorted from the leaf to the root of the tree.
+     * @param _month The month number of the claim.
+     * @param _claimedBalance The amount being claimed for that month.
+     * @param _merkleProof The Merkle proof for this claim.
+     * @return valid True if the claim is valid (proof matches the root).
      */
     function verifyClaim(
         address _liquidityProvider,
@@ -139,11 +154,11 @@ contract MerkleRedeem is Ownable {
     }
 
     /**
-     * @notice Seeds a new round for the airdrop.
-     * @dev Will transfer tokens from the owner to this contract.
-     * @param _month The airdrop month.
-     * @param _merkleRoot The merkle root of the claims for that period.
-     * @param _totalAllocation The amount of tokens allocated for the distribution.
+     * @notice Seed allocations for a new airdrop month.
+     * @dev Transfers the total allocation from the owner to this contract.
+     * @param _month The month number to seed.
+     * @param _merkleRoot The Merkle root of the claims for that month.
+     * @param _totalAllocation The total token amount allocated for that month.
      */
     function seedAllocations(uint _month, bytes32 _merkleRoot, uint _totalAllocation) external onlyOwner {
         require(monthMerkleRoots[_month] == bytes32(0), "cannot rewrite merkle root");
