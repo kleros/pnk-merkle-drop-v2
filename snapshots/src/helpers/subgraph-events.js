@@ -14,7 +14,9 @@ const fetchStakeSets = async (blockStart, blockEnd, subgraphEndpoint, lastId) =>
           orderDirection: asc,
           first: 1000) {
             id
-            address
+            juror {
+              id
+            }
             courtID
             stake
             newTotalStake
@@ -55,7 +57,7 @@ const parseStakeSetsIntoEvents = (subgraphStakeSets) => {
   return subgraphStakeSets.map((s) => {
     return {
       args: {
-        _address: utils.getAddress(s.address), // to checksum
+        _address: utils.getAddress(s.juror.id), // to checksum
         _courtID: BigNumber.from(s.courtID),
         _stake: BigNumber.from(s.stake),
         _newTotalStake: BigNumber.from(s.newTotalStake),
@@ -70,6 +72,8 @@ export const getStakeSets = async (blockStart, blockEnd, chainId) => {
   let endpoint;
   if (chainId === 42161) {
     endpoint = "https://api.studio.thegraph.com/query/44313/kleros-v2-neo-mainnet/version/latest";
+  } else if (chainId === 421614) {
+    endpoint = "https://api.studio.thegraph.com/query/44313/kleros-v2-devnet/version/latest";
   } else {
     throw new Error("Unsupported chain, not arbitrum one");
   }

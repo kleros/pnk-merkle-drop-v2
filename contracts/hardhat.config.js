@@ -1,6 +1,8 @@
 require("dotenv-safe/config");
-require("@nomicfoundation/hardhat-toolbox");
 require("hardhat-deploy");
+require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-ethers");
+
 
 module.exports = {
   solidity: {
@@ -21,10 +23,18 @@ module.exports = {
       saveDeployments: false,
       tags: ["test", "local"],
     },
+    arbitrumSepolia: {
+      chainId: 421614,
+      url: `https://arbitrum-sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: [process.env.DEPLOYER_PRIVATE_KEY],
+      live: true,
+      saveDeployments: true,
+      tags: ["dev"],
+    },
     arbitrum: {
       chainId: 42161,
       url: `https://arbitrum-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      accounts: [process.env.PRODUCTION_DEPLOYER_PRIVATE_KEY],
+      accounts: [process.env.DEPLOYER_PRIVATE_KEY],
       live: true,
       saveDeployments: true,
       tags: ["production"],

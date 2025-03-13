@@ -15,14 +15,26 @@ dotenv.config();
 dayjs.extend(utc);
 
 const chains = [
+  // ONLY uncomment Arbitrum Sepolia if you are testing
+  // {
+  //   chainId: 421614,
+  //   blocksPerSecond: 0.268,
+  //   klerosCoreAddress: "0xA54e7A16d7460e38a8F324eF46782FB520d58CE8",
+  //   token: "0x34B944D42cAcfC8266955D07A80181D2054aa225",
+  //   pnkDropRatio: BigNumber.from("1000000000"),
+  //   fromBlock: 3638878,
+  //   provider: getDefaultProvider(process.env.INFURA_ARB_SEPOLIA_RPC),
+  //   merkleDropAddress: "0x0eb225c80C0ED7853e7e195EA07227a89099d7be",
+  // },
   {
     chainId: 42161,
     blocksPerSecond: 0.26,
     klerosCoreAddress: "0x991d2df165670b9cac3B022f4B68D65b664222ea",
     token: "0x330bD769382cFc6d50175903434CCC8D206DCAE5",
     pnkDropRatio: BigNumber.from("1000000000"),
-    fromBlock: 272063201,
+    fromBlock: 272063254,
     provider: getDefaultProvider(process.env.INFURA_ARB_ONE_RPC),
+    merkleDropAddress: "0x38990CD3aFFA3f55298794328deC01B800f36b2b"
   }
 ];
 
@@ -59,16 +71,16 @@ const getDatesAndPeriod = () => {
   const previousDate = new Date(Date.UTC(currentYear, currentMonth - 2, 1));
 
   // Calculate the periods based on the start date
-  const baseYear = 2025;
+  const baseYear = 2024;
   const baseMonth = 0; // January is 0 in Date.UTC
   const monthDiff = (currentYear - baseYear) * 12 + currentMonth - baseMonth - 1;
 
   // target starts at 29 for January 2024 and increases by 1 each period
   // maxes at 50
   const target = BigNumber.from(Math.min(29 + monthDiff, 50)).mul(BigNumber.from("10000000"));
-  // arbitrumPeriod starts at 1 for January 2025 and increases by 1 each period
+  // arbitrumPeriod starts at 1 for January 2024 and increases by 1 each period
   // only used for _month argument in merkledrop.seedAllocations()
-  const periods = { 42161: 1 + monthDiff };
+  const periods = { 42161: 1 + monthDiff, 421614: 1 + monthDiff };
 
   return { startDate, endDate, previousDate, target, periods };
 };
@@ -155,7 +167,7 @@ const main = async () => {
     const snapshot = await createSnapshot({ fromBlock: c.fromBlock, startDate, endDate });
     snapshotInfos.push({
       // edit when arbitrum inclusion
-      filename: `${c.chainId == "42161" ? "arbitrum-" : ""}snapshot-${startDate.toISOString().slice(0, 7)}.json`,
+      filename: `${c.chainId == "42161" ? "arbitrum-" : "arbitrumSepolia-"}snapshot-${startDate.toISOString().slice(0, 7)}.json`,
       chain: c,
       snapshot,
       period: periods[c.chainId],
@@ -171,21 +183,30 @@ const main = async () => {
   }
 
   // txs to run sequentially, hardcoded section.
-  //1. Approve `merkleredeemcontractaddressgoeshere` (arbitrum) to spend unlimited PNK  (token address `0x330bD769382cFc6d50175903434CCC8D206DCAE5`)
-  // >>>> ignoring.
-  //2. Seed month X on Arbitrum One.
-  const merkleContractArbitrumOne = new Contract("merkleredeemcontractaddressgoeshere", [
-    "function seedAllocations(uint _month, bytes32 _merkleRoot, uint _totalAllocation) external",
-  ]);
+  console.log("PNK should be already approved to MerkleRedeem contract for each chain");
+
+  const merkleDropABI = [
+    "function seedAllocations(uint _month, bytes32 _merkleRoot, uint _totalAllocation) external"
+  ];
+
+  // Helper function to generate transaction URLs
   const txToUrl = (tx, chainId) =>
     `https://greenlucid.github.io/lame-tx-prompt/site?to=${tx.to}&data=${tx.data}&value=0&chainId=${chainId}`;
-  const tx1 = await merkleContractArbitrumOne.populateTransaction.seedAllocations(
-    snapshotInfos[0].period,
-    snapshotInfos[0].snapshot.merkleTree.root,
-    snapshotInfos[0].snapshot.droppedAmount
-  );
-  console.log("PNK should be already approved to Merkle Drop");
-  console.log("1: ", txToUrl(tx1, 42161));
+
+  // Loop through snapshotInfos to generate transactions for each chain
+  for (const sinfo of snapshotInfos) {
+    const merkleContract = new Contract(sinfo.chain.merkleDropAddress, merkleDropABI);
+
+    // Populate the seedAllocations transaction
+    const tx = await merkleContract.populateTransaction.seedAllocations(
+      sinfo.period,              // The period (month) for this snapshot
+      sinfo.snapshot.merkleTree.root, // The Merkle root from the snapshot
+      sinfo.snapshot.droppedAmount    // The total allocation to drop
+    );
+
+    // Log the transaction URL for this chain
+    console.log(`Transaction for chain ${sinfo.chain.chainId}:`, txToUrl(tx, sinfo.chain.chainId));
+  }
 };
 
 main();
