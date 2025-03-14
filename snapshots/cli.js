@@ -24,7 +24,7 @@ const chains = [
   //   pnkDropRatio: BigNumber.from("1000000000"),
   //   fromBlock: 3638878,
   //   provider: getDefaultProvider(process.env.INFURA_ARB_SEPOLIA_RPC),
-  //   merkleDropAddress: "0x0eb225c80C0ED7853e7e195EA07227a89099d7be",
+  //   merkleDropAddress: "0x93024F2D53D180074F4575818dE3E8dcE8147CF2",
   // },
   {
     chainId: 42161,
@@ -34,7 +34,7 @@ const chains = [
     pnkDropRatio: BigNumber.from("1000000000"),
     fromBlock: 272063254,
     provider: getDefaultProvider(process.env.INFURA_ARB_ONE_RPC),
-    merkleDropAddress: "0x38990CD3aFFA3f55298794328deC01B800f36b2b"
+    merkleDropAddress: "0x2a23B84078b287753A91C522c3bB3b6B32f6F8f1"
   }
 ];
 
