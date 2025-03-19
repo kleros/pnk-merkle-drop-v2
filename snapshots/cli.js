@@ -6,10 +6,9 @@ import { hideBin } from "yargs/helpers";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 import { createSnapshotCreator } from "./src/create-snapshot-from-block-limits.js";
-import { formatEther } from "ethers/lib/utils.js";
 import fs from "fs";
 import { fileToIpfs } from "./src/fileToIpfs.js";
-
+import { addTransactionToBatch, writeTransactionBatch } from "./src/helpers/tx-builder.js";
 dotenv.config();
 
 dayjs.extend(utc);
@@ -18,6 +17,7 @@ const chains = [
   // ONLY uncomment Arbitrum Sepolia if you are testing
   // {
   //   chainId: 421614,
+  //   chainShortName: "arb-sep", // https://chainid.network/shortNameMapping.json
   //   blocksPerSecond: 0.268,
   //   klerosCoreAddress: "0xA54e7A16d7460e38a8F324eF46782FB520d58CE8",
   //   token: "0x34B944D42cAcfC8266955D07A80181D2054aa225",
@@ -25,17 +25,20 @@ const chains = [
   //   fromBlock: 3638878,
   //   provider: getDefaultProvider(process.env.INFURA_ARB_SEPOLIA_RPC),
   //   merkleDropAddress: "0x93024F2D53D180074F4575818dE3E8dcE8147CF2",
+  //   safeAddress: "0x66e8DE9B42308c6Ca913D1EE041d6F6fD037A57e", // Safe not supported on Arbitrum Sepolia
   // },
   {
     chainId: 42161,
+    chainShortName: "arb", // https://chainid.network/shortNameMapping.json
     blocksPerSecond: 0.26,
     klerosCoreAddress: "0x991d2df165670b9cac3B022f4B68D65b664222ea",
     token: "0x330bD769382cFc6d50175903434CCC8D206DCAE5",
     pnkDropRatio: BigNumber.from("1000000000"),
     fromBlock: 272063254,
     provider: getDefaultProvider(process.env.INFURA_ARB_ONE_RPC),
-    merkleDropAddress: "0x2a23B84078b287753A91C522c3bB3b6B32f6F8f1"
-  }
+    merkleDropAddress: "0x2a23B84078b287753A91C522c3bB3b6B32f6F8f1",
+    safeAddress: "0x66e8DE9B42308c6Ca913D1EE041d6F6fD037A57e",
+  },
 ];
 
 const argv = yargs(hideBin(process.argv))
@@ -167,7 +170,9 @@ const main = async () => {
     const snapshot = await createSnapshot({ fromBlock: c.fromBlock, startDate, endDate });
     snapshotInfos.push({
       // edit when arbitrum inclusion
-      filename: `${c.chainId == "42161" ? "arbitrum-" : "arbitrumSepolia-"}snapshot-${startDate.toISOString().slice(0, 7)}.json`,
+      filename: `${c.chainId == "42161" ? "arbitrum-" : "arbitrumSepolia-"}snapshot-${startDate
+        .toISOString()
+        .slice(0, 7)}.json`,
       chain: c,
       snapshot,
       period: periods[c.chainId],
@@ -185,13 +190,7 @@ const main = async () => {
   // txs to run sequentially, hardcoded section.
   console.log("PNK should be already approved to MerkleRedeem contract for each chain");
 
-  const merkleDropABI = [
-    "function seedAllocations(uint _month, bytes32 _merkleRoot, uint _totalAllocation) external"
-  ];
-
-  // Helper function to generate transaction URLs
-  const txToUrl = (tx, chainId) =>
-    `https://greenlucid.github.io/lame-tx-prompt/site?to=${tx.to}&data=${tx.data}&value=0&chainId=${chainId}`;
+  const merkleDropABI = ["function seedAllocations(uint _month, bytes32 _merkleRoot, uint _totalAllocation) external"];
 
   // Loop through snapshotInfos to generate transactions for each chain
   for (const sinfo of snapshotInfos) {
@@ -199,13 +198,21 @@ const main = async () => {
 
     // Populate the seedAllocations transaction
     const tx = await merkleContract.populateTransaction.seedAllocations(
-      sinfo.period,              // The period (month) for this snapshot
+      sinfo.period, // The period (month) for this snapshot
       sinfo.snapshot.merkleTree.root, // The Merkle root from the snapshot
-      sinfo.snapshot.droppedAmount    // The total allocation to drop
+      sinfo.snapshot.droppedAmount // The total allocation to drop
     );
 
-    // Log the transaction URL for this chain
-    console.log(`Transaction for chain ${sinfo.chain.chainId}:`, txToUrl(tx, sinfo.chain.chainId));
+    addTransactionToBatch(tx);
+
+    const { chainId, chainShortName, safeAddress } = sinfo.chain;
+    writeTransactionBatch({
+      name: "Seed allocations",
+      chainId,
+      chainShortName,
+      safeAddress,
+      outputPath: `tx-batch-${chainShortName}.json`,
+    });
   }
 };
 
