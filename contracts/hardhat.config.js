@@ -1,8 +1,6 @@
 require("dotenv-safe/config");
 require("hardhat-deploy");
-require("@nomiclabs/hardhat-waffle");
-require("@nomiclabs/hardhat-ethers");
-
+require("@nomicfoundation/hardhat-ethers");
 
 module.exports = {
   solidity: {
