@@ -4,7 +4,8 @@ Smart Contracts to manage and redeem PNK airdrops.
 
 ## Deployments
 
-- `arbitrum`: [deployment](./deployments/arbitrum/MerkleRedeemV2.json#L2)
+- `arbitrum`: [deployment](./deployments/arbitrum/MerkleRedeem.json#L2)
+- `arbitrumSepolia`: [deployment](./deployments/arbitrumSepolia/MerkleRedeem.json#L2)
 
 ## Usage
 
