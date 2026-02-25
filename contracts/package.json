@@ -13,7 +13,7 @@
     "export": "hardhat export --export-all deployments/merkleRedeem.ts"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.2.0"
+    "@openzeppelin/contracts": "^5.4.0"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
