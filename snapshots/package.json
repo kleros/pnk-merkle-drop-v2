@@ -15,7 +15,7 @@
     "@kleros/file-to-ipfs": "^0.3.2",
     "@kleros/merkle-tree": "workspace:*",
     "awaity": "^1.0.0",
-    "aws-sdk": "^2.841.0",
+    "aws-sdk": "^2.1693.0",
     "dayjs": "^1.10.4",
     "deepmerge": "^4.2.2",
     "dotenv": "^8.2.0",
